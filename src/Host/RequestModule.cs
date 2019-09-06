@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using MediatR;
 using Nancy;
 using Nancy.Extensions;
-using Nancy.ModelBinding;
 using Process;
 
 namespace Host
@@ -19,72 +18,77 @@ namespace Host
             var requestTypes = typeof(IProcessLivesHere)
                 .Assembly
                 .GetTypes()
-                .Where(x => x.IsAssignableToGenericType(requestBaseType) && !x.IsAbstract);
+                .Where(x => x.IsAssignableToGenericType(requestBaseType) &&
+                            !x.IsAbstract);
 
             foreach (var requestType in requestTypes)
             {
-                EndpointDefinitionAttribute endpoint = requestType
+                if (!(requestType
                     .GetCustomAttributes(typeof(EndpointDefinitionAttribute))
-                    .FirstOrDefault() as EndpointDefinitionAttribute;
-
-                if (endpoint == null)
+                    .FirstOrDefault() is EndpointDefinitionAttribute endpoint))
                 {
                     continue;
                 }
 
-                if (endpoint.Method == "POST")
+                object theRequest = Activator.CreateInstance(requestType);
+
+                switch (endpoint.Method)
                 {
-                    Post(endpoint.Endpoint, (o, token) =>
-                    {
-                        object theRequest = Activator.CreateInstance(requestType);
-                        this.BindTo(theRequest);
+                    case Method.Post:
+                        Post(endpoint.Endpoint, (o, token) =>
+                        {
+                            MethodInfo method = GetMeditorSendMethodInfo(
+                                mediator,
+                                typeof(CommandResult));
 
-                        // ReSharper disable once PossibleNullReferenceException
-                        MethodInfo method = mediator
-                            .GetType()
-                            .GetMethod(
-                                "Send",
-                                BindingFlags.Instance | BindingFlags.Public)
-                            .MakeGenericMethod(typeof(CommandResult));
+                            method.Invoke(mediator, new[] {theRequest, token});
 
-                        method.Invoke(mediator, new[] {theRequest, token});
+                            return Task.FromResult(HttpStatusCode.Accepted);
+                        });
+                        break;
+                    case Method.Get:
+                        Get(endpoint.Endpoint, async (o, token) =>
+                        {
+                            Type returnType = theRequest
+                                .GetType()
+                                .GetInterfaces()
+                                .First()
+                                .GetGenericArguments()
+                                .First();
 
-                        return Task.FromResult(HttpStatusCode.Accepted);
-                    });
-                }
-                else if (endpoint.Method == "GET")
-                {
-                    Get(endpoint.Endpoint, async (o, token) =>
-                    {
-                        object theRequest = Activator.CreateInstance(requestType);
+                            var method = GetMeditorSendMethodInfo(
+                                mediator,
+                                returnType);
 
-                        Type returnType = theRequest
-                            .GetType()
-                            .GetInterfaces()
-                            .First()
-                            .GetGenericArguments()
-                            .First();
+                            Task result = (Task)method.Invoke(
+                                mediator,
+                                new[] { theRequest, token });
 
-                        this.BindTo(theRequest);
+                            await result.ConfigureAwait(false);
 
-                        // ReSharper disable once PossibleNullReferenceException
-                        MethodInfo method = mediator
-                            .GetType()
-                            .GetMethod(
-                                "Send",
-                                BindingFlags.Instance | BindingFlags.Public)
-                            .MakeGenericMethod(returnType);
-
-                        Type returnTask = typeof(Task<>).MakeGenericType(returnType);
-
-                        Task result = (Task)method.Invoke(mediator, new[] {theRequest, token});
-
-                        await result.ConfigureAwait(false);
-
-                        return (object)((dynamic) result).Result;
-                    });
+                            return (object)((dynamic) result).Result;
+                        });
+                        break;
                 }
             }
+        }
+
+        static MethodInfo GetMeditorSendMethodInfo(
+            IMediator mediator,
+            Type returnType)
+        {
+            if (mediator == null)
+            {
+                throw new ArgumentNullException(nameof(mediator));
+            }
+
+            // ReSharper disable once PossibleNullReferenceException
+            return mediator
+                .GetType()
+                .GetMethod(
+                    "Send",
+                    BindingFlags.Instance | BindingFlags.Public)
+                .MakeGenericMethod(returnType);
         }
     }
 }

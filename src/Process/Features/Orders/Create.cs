@@ -7,7 +7,7 @@ namespace Process.Features.Orders
 {
     public class Create
     {
-        [EndpointDefinition("POST", "/orders")]
+        [EndpointDefinition(Method.Post, "/orders")]
         public class Command : PipelineRequest
         {
             public Guid SupplierId { get; set; }

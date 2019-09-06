@@ -7,7 +7,7 @@ namespace Process.Features.Health
 {
     public class Index
     {
-        [EndpointDefinition("GET", "/health")]
+        [EndpointDefinition(Method.Get, "/health")]
         public class Query : IRequest<Model>
         {
         }
