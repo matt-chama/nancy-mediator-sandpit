@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Nancy;
@@ -9,6 +11,7 @@ using Process;
 
 namespace Host
 {
+    // ReSharper disable once UnusedMember.Global - bound dynamically
     public sealed class RequestModule : NancyModule
     {
         public RequestModule(IMediator mediator)
@@ -35,43 +38,71 @@ namespace Host
                 switch (endpoint.Method)
                 {
                     case Method.Post:
-                        Post(endpoint.Endpoint, (o, token) =>
-                        {
-                            MethodInfo method = GetMeditorSendMethodInfo(
-                                mediator,
-                                typeof(CommandResult));
-
-                            method.Invoke(mediator, new[] {theRequest, token});
-
-                            return Task.FromResult(HttpStatusCode.Accepted);
-                        });
+                        Post(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
+                        break;
+                    case Method.Put:
+                        Put(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
+                        break;
+                    case Method.Delete:
+                        Delete(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
                         break;
                     case Method.Get:
-                        Get(endpoint.Endpoint, async (o, token) =>
-                        {
-                            Type returnType = theRequest
-                                .GetType()
-                                .GetInterfaces()
-                                .First()
-                                .GetGenericArguments()
-                                .First();
-
-                            var method = GetMeditorSendMethodInfo(
-                                mediator,
-                                returnType);
-
-                            Task result = (Task)method.Invoke(
-                                mediator,
-                                new[] { theRequest, token });
-
-                            await result.ConfigureAwait(false);
-
-                            return (object)((dynamic) result).Result;
-                        });
+                        Get(endpoint.Endpoint, DispatchGet(mediator, theRequest));
                         break;
                 }
             }
         }
+
+        static Func<dynamic, CancellationToken, Task<HttpStatusCode>> DispatchOthers(
+            IMediator mediator,
+            object theRequest,
+            HttpStatusCode resultCode = HttpStatusCode.NoContent)
+        {
+            return async (o, token) =>
+            {
+                MethodInfo method = GetMeditorSendMethodInfo(
+                    mediator,
+                    typeof(CommandResult));
+
+                Task result = (Task)method.Invoke(
+                    mediator,
+                    new[] {theRequest, token});
+
+                await result.ConfigureAwait(false);
+
+                return resultCode;
+            };
+        }
+
+        static Func<dynamic, CancellationToken, Task<object>> DispatchGet(
+            IMediator mediator,
+            object theRequest)
+        {
+            return async (o, token) =>
+            {
+                Type returnType = theRequest
+                    .GetType()
+                    .GetInterfaces()
+                    .First() // TODO find IRequest<>
+                    .GetGenericArguments()
+                    .First();
+
+                var method = GetMeditorSendMethodInfo(
+                    mediator,
+                    returnType);
+
+                Task result = (Task)method.Invoke(
+                    mediator,
+                    new[] { theRequest, token });
+
+                await result.ConfigureAwait(false);
+
+                return (object)((dynamic) result).Result;
+            };
+        }
+
+        static readonly ConcurrentDictionary<Type, MethodInfo> MethodInfos =
+            new ConcurrentDictionary<Type, MethodInfo>();
 
         static MethodInfo GetMeditorSendMethodInfo(
             IMediator mediator,
@@ -82,13 +113,15 @@ namespace Host
                 throw new ArgumentNullException(nameof(mediator));
             }
 
-            // ReSharper disable once PossibleNullReferenceException
-            return mediator
-                .GetType()
-                .GetMethod(
-                    "Send",
-                    BindingFlags.Instance | BindingFlags.Public)
-                .MakeGenericMethod(returnType);
+            return MethodInfos.GetOrAdd(
+                returnType,
+                // ReSharper disable once PossibleNullReferenceException
+                type => mediator
+                    .GetType()
+                    .GetMethod(
+                        nameof(IMediator.Send),
+                        BindingFlags.Instance | BindingFlags.Public)
+                    .MakeGenericMethod(type));
         }
     }
 }
