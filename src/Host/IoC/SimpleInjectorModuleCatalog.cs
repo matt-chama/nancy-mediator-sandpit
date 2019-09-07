@@ -1,4 +1,4 @@
-﻿namespace Host
+﻿namespace Host.IoC
 {
     using System;
     using System.Collections.Generic;

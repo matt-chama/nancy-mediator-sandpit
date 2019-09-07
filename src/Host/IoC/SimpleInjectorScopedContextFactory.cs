@@ -1,8 +1,8 @@
-﻿using Nancy;
-using SimpleInjector.Lifestyles;
-
-namespace Host
+﻿namespace Host.IoC
 {
+    using Nancy;
+    using SimpleInjector.Lifestyles;
+
     public sealed class SimpleInjectorScopedContextFactory : INancyContextFactory
     {
         readonly SimpleInjector.Container container;

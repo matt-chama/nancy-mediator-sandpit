@@ -2,6 +2,7 @@
 {
     using System;
     using System.Reflection;
+    using IoC;
     using MediatR;
     using MediatR.Pipeline;
     using Nancy;
