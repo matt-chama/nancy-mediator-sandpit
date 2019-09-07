@@ -1,37 +1,39 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
-using Nancy;
-using Nancy.Extensions;
-using Process;
-
-namespace Host
+﻿namespace Host
 {
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Reflection;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using MediatR;
+    using Nancy;
+    using Nancy.Extensions;
+    using Process;
+
     // ReSharper disable once UnusedMember.Global - bound dynamically
     public sealed class RequestModule : NancyModule
     {
+        static readonly ConcurrentDictionary<Type, MethodInfo> MethodInfos =
+            new ConcurrentDictionary<Type, MethodInfo>();
+
         public RequestModule(IMediator mediator)
         {
-            var requestBaseType = typeof(IRequest<>);
+            Type requestBaseType = typeof(IRequest<>);
 
-            var requestTypes = typeof(IProcessLivesHere)
+            IEnumerable<Type> requestTypes = typeof(IProcessLivesHere)
                 .Assembly
                 .GetTypes()
                 .Where(x => x.IsAssignableToGenericType(requestBaseType) &&
                             !x.IsAbstract);
 
-            foreach (var requestType in requestTypes)
+            foreach (Type requestType in requestTypes)
             {
                 if (!(requestType
                     .GetCustomAttributes(typeof(EndpointDefinitionAttribute))
                     .FirstOrDefault() is EndpointDefinitionAttribute endpoint))
-                {
                     continue;
-                }
 
                 object theRequest = Activator.CreateInstance(requestType);
 
@@ -39,15 +41,19 @@ namespace Host
                 {
                     case Method.Post:
                         Post(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
+
                         break;
                     case Method.Put:
                         Put(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
+
                         break;
                     case Method.Delete:
                         Delete(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
+
                         break;
                     case Method.Get:
                         Get(endpoint.Endpoint, DispatchGet(mediator, theRequest));
+
                         break;
                 }
             }
@@ -60,11 +66,11 @@ namespace Host
         {
             return async (o, token) =>
             {
-                MethodInfo method = GetMeditorSendMethodInfo(
+                MethodInfo method = GetMediatorSendMethodInfo(
                     mediator,
                     typeof(CommandResult));
 
-                Task result = (Task)method.Invoke(
+                Task result = (Task) method.Invoke(
                     mediator,
                     new[] {theRequest, token});
 
@@ -83,35 +89,30 @@ namespace Host
                 Type returnType = theRequest
                     .GetType()
                     .GetInterfaces()
-                    .First() // TODO find IRequest<>
+                    .First(x => x.GetGenericTypeDefinition() == typeof(IRequest<>))
                     .GetGenericArguments()
                     .First();
 
-                var method = GetMeditorSendMethodInfo(
+                MethodInfo method = GetMediatorSendMethodInfo(
                     mediator,
                     returnType);
 
-                Task result = (Task)method.Invoke(
+                Task result = (Task) method.Invoke(
                     mediator,
-                    new[] { theRequest, token });
+                    new[] {theRequest, token});
 
                 await result.ConfigureAwait(false);
 
-                return (object)((dynamic) result).Result;
+                return (object) ((dynamic) result).Result;
             };
         }
 
-        static readonly ConcurrentDictionary<Type, MethodInfo> MethodInfos =
-            new ConcurrentDictionary<Type, MethodInfo>();
-
-        static MethodInfo GetMeditorSendMethodInfo(
+        static MethodInfo GetMediatorSendMethodInfo(
             IMediator mediator,
             Type returnType)
         {
             if (mediator == null)
-            {
                 throw new ArgumentNullException(nameof(mediator));
-            }
 
             return MethodInfos.GetOrAdd(
                 returnType,

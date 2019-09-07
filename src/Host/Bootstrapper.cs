@@ -1,30 +1,34 @@
-﻿using System;
-using MediatR;
-using MediatR.Pipeline;
-using Nancy;
-using Nancy.Bootstrapper;
-using Nancy.TinyIoc;
-using Process;
-using SimpleInjector;
-using SimpleInjector.Lifestyles;
-
-namespace Host
+﻿namespace Host
 {
+    using System;
+    using System.Reflection;
+    using MediatR;
+    using MediatR.Pipeline;
+    using Nancy;
+    using Nancy.Bootstrapper;
+    using Nancy.TinyIoc;
+    using Process;
+    using SimpleInjector;
+    using SimpleInjector.Lifestyles;
+
     public class Bootstrapper : DefaultNancyBootstrapper
     {
-        protected override void ApplicationStartup(TinyIoCContainer nancy, IPipelines pipelines)
+        protected override void ApplicationStartup(
+            TinyIoCContainer nancy,
+            IPipelines pipelines)
         {
-            var container = new Container();
+            Container container = new Container();
             container.Options.DefaultScopedLifestyle = new AsyncScopedLifestyle();
 
-            var assemblies = typeof(IProcessLivesHere).Assembly;
+            Assembly assemblies = typeof(IProcessLivesHere).Assembly;
 
             // register services
             container.RegisterSingleton<IMediator, Mediator>();
             container.Register(typeof(IRequestHandler<,>), assemblies);
 
             // pipeline
-            container.Register(() => new ServiceFactory(container.GetInstance), Lifestyle.Singleton);
+            container.Register(() =>
+                new ServiceFactory(container.GetInstance), Lifestyle.Singleton);
 
             container.Collection.Register(
                 typeof(IPipelineBehavior<,>),
@@ -37,7 +41,7 @@ namespace Host
             container.Collection.Register(typeof(IRequestPostProcessor<,>), Array.Empty<Type>());
 
             // register nancy modules
-            foreach (var nancyModule in Modules)
+            foreach (ModuleRegistration nancyModule in Modules)
             {
                 container.Register(nancyModule.ModuleType);
             }

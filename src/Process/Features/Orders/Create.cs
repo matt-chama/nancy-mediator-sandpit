@@ -1,10 +1,10 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
-
-namespace Process.Features.Orders
+﻿namespace Process.Features.Orders
 {
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using MediatR;
+
     public class Create
     {
         [EndpointDefinition(Method.Post, "/orders")]

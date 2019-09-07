@@ -1,7 +1,7 @@
-﻿using System;
-
-namespace Process
+﻿namespace Process
 {
+    using System;
+
     public enum Method
     {
         Get,
@@ -13,13 +13,13 @@ namespace Process
     [AttributeUsage(AttributeTargets.Class)]
     public class EndpointDefinitionAttribute : Attribute
     {
-        public Method Method { get; }
-        public string Endpoint { get; }
-
         public EndpointDefinitionAttribute(Method method, string endpoint)
         {
             Method = method;
             Endpoint = endpoint;
         }
+
+        public Method Method { get; }
+        public string Endpoint { get; }
     }
 }

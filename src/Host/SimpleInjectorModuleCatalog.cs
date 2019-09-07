@@ -1,25 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Nancy;
-
-namespace Host
+﻿namespace Host
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using Nancy;
+    using SimpleInjector;
+
     public sealed class SimpleInjectorModuleCatalog : INancyModuleCatalog
     {
-        private readonly SimpleInjector.Container _container;
+        readonly Container container;
 
-        public SimpleInjectorModuleCatalog(SimpleInjector.Container container)
+        public SimpleInjectorModuleCatalog(Container container)
         {
-            this._container = container;
+            this.container = container;
         }
 
-        public INancyModule GetModule(Type moduleType, NancyContext context) =>
-            (INancyModule)_container.GetInstance(moduleType);
+        public INancyModule GetModule(Type moduleType, NancyContext context)
+        {
+            return (INancyModule) container.GetInstance(moduleType);
+        }
 
-        public IEnumerable<INancyModule> GetAllModules(NancyContext context) =>
-            from r in _container.GetCurrentRegistrations()
-            where typeof(INancyModule).IsAssignableFrom(r.ServiceType)
-            select (INancyModule)r.GetInstance();
+        public IEnumerable<INancyModule> GetAllModules(NancyContext context)
+        {
+            return from r in container.GetCurrentRegistrations()
+                where typeof(INancyModule).IsAssignableFrom(r.ServiceType)
+                select (INancyModule) r.GetInstance();
+        }
     }
 }

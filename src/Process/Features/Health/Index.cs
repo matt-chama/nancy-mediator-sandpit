@@ -1,10 +1,10 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
-
-namespace Process.Features.Health
+﻿namespace Process.Features.Health
 {
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using MediatR;
+
     public class Index
     {
         [EndpointDefinition(Method.Get, "/health")]
@@ -14,7 +14,9 @@ namespace Process.Features.Health
 
         public class Handler : IRequestHandler<Query, Model>
         {
-            public Task<Model> Handle(Query request, CancellationToken cancellationToken)
+            public Task<Model> Handle(
+                Query request,
+                CancellationToken cancellationToken)
             {
                 return Task.FromResult(new Model
                 {
