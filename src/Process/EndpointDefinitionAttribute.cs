@@ -7,7 +7,8 @@
         Get,
         Post,
         Put,
-        Delete
+        Delete,
+        Patch
     }
 
     [AttributeUsage(AttributeTargets.Class)]

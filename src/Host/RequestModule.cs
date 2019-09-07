@@ -47,6 +47,10 @@
                         Put(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
 
                         break;
+                    case Method.Patch:
+                        Patch(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
+
+                        break;
                     case Method.Delete:
                         Delete(endpoint.Endpoint, DispatchOthers(mediator, theRequest));
 
