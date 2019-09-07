@@ -8,7 +8,7 @@
     public class Create
     {
         [EndpointDefinition(Method.Post, "/orders")]
-        public class Command : PipelineRequest
+        public class Command : CommandBase
         {
             public Guid SupplierId { get; set; }
             public Guid ProductId { get; set; }
